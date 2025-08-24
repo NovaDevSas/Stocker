@@ -269,3 +269,173 @@ on conflict (id) do nothing;
 insert into storage.buckets (id, name, public)
 values ('user-signatures', 'user-signatures', false)
 on conflict (id) do nothing;
+
+-- PATCHES 2025-08-24-e — stock_movements: warehouse_id + trigger de sincronización con inventory_levels
+-- Agrega la columna warehouse_id (idempotente)
+alter table if exists public.stock_movements
+  add column if not exists warehouse_id uuid references public.warehouses(id) on delete cascade;
+
+-- Índice compuesto para consultas por producto+almacén+fecha
+create index if not exists idx_stock_movements_prod_wh_date
+  on public.stock_movements (product_id, warehouse_id, created_at desc);
+
+-- Función: aplicar movimiento al nivel de inventario del par (producto, almacén)
+create or replace function public.apply_stock_movement()
+returns trigger
+language plpgsql
+security definer as $$
+declare
+  v_current integer;
+  v_new integer;
+begin
+  -- Si no hay almacén, no hacemos nada (permite datos antiguos sin warehouse_id)
+  if new.warehouse_id is null then
+    return null;
+  end if;
+
+  -- Bloqueamos la fila correspondiente para evitar carreras
+  select quantity into v_current
+  from public.inventory_levels
+  where product_id = new.product_id and warehouse_id = new.warehouse_id
+  for update;
+
+  if v_current is null then
+    v_current := 0;
+  end if;
+
+  if new.movement_type = 'IN' then
+    v_new := v_current + new.quantity;
+  elsif new.movement_type = 'OUT' then
+    if v_current < new.quantity then
+      raise exception 'Stock insuficiente para salida. Actual: %, Salida: %', v_current, new.quantity;
+    end if;
+    v_new := v_current - new.quantity;
+  else
+    -- ADJUST: interpretamos quantity como cantidad final absoluta
+    v_new := new.quantity;
+  end if;
+
+  insert into public.inventory_levels (product_id, warehouse_id, quantity)
+  values (new.product_id, new.warehouse_id, v_new)
+  on conflict (product_id, warehouse_id)
+  do update set quantity = excluded.quantity, updated_at = now();
+
+  return null;
+end;
+$$;
+
+-- Trigger AFTER INSERT para aplicar movimientos
+drop trigger if exists stock_movements_apply on public.stock_movements;
+create trigger stock_movements_apply
+after insert on public.stock_movements
+for each row execute function public.apply_stock_movement();
+
+-- Función: sincronizar inventory_levels en UPDATE y DELETE de stock_movements
+create or replace function public.sync_stock_movement_update_delete()
+returns trigger
+language plpgsql
+security definer as $$
+declare
+  v_current integer;
+  v_new integer;
+begin
+  if tg_op = 'UPDATE' then
+    -- Por simplicidad del MVP: no permitimos actualizar movimientos de tipo ADJUST
+    if old.movement_type = 'ADJUST' or new.movement_type = 'ADJUST' then
+      raise exception 'Actualizar movimientos ADJUST no está permitido. Elimine y cree uno nuevo.';
+    end if;
+
+    -- Revertir efecto del registro OLD sobre el par (producto, almacén) anterior
+    if old.warehouse_id is not null then
+      select quantity into v_current
+      from public.inventory_levels
+      where product_id = old.product_id and warehouse_id = old.warehouse_id
+      for update;
+      if v_current is null then v_current := 0; end if;
+
+      if old.movement_type = 'IN' then
+        v_new := v_current - old.quantity;
+      else -- 'OUT'
+        v_new := v_current + old.quantity;
+      end if;
+      if v_new < 0 then
+        raise exception 'El ajuste dejaría inventario negativo para el par antiguo (producto %, almacén %).', old.product_id, old.warehouse_id;
+      end if;
+
+      insert into public.inventory_levels (product_id, warehouse_id, quantity)
+      values (old.product_id, old.warehouse_id, v_new)
+      on conflict (product_id, warehouse_id)
+      do update set quantity = excluded.quantity, updated_at = now();
+    end if;
+
+    -- Aplicar efecto del registro NEW sobre el (producto, almacén) nuevo
+    if new.warehouse_id is not null then
+      select quantity into v_current
+      from public.inventory_levels
+      where product_id = new.product_id and warehouse_id = new.warehouse_id
+      for update;
+      if v_current is null then v_current := 0; end if;
+
+      if new.movement_type = 'IN' then
+        v_new := v_current + new.quantity;
+      else -- 'OUT'
+        if v_current < new.quantity then
+          raise exception 'Stock insuficiente para salida tras actualización. Actual: %, Salida: %', v_current, new.quantity;
+        end if;
+        v_new := v_current - new.quantity;
+      end if;
+
+      insert into public.inventory_levels (product_id, warehouse_id, quantity)
+      values (new.product_id, new.warehouse_id, v_new)
+      on conflict (product_id, warehouse_id)
+      do update set quantity = excluded.quantity, updated_at = now();
+    end if;
+
+    return null;
+  elsif tg_op = 'DELETE' then
+    -- Por simplicidad del MVP: no permitimos borrar movimientos de tipo ADJUST
+    if old.movement_type = 'ADJUST' then
+      raise exception 'Borrar movimientos ADJUST no está permitido.';
+    end if;
+
+    if old.warehouse_id is null then
+      return null;
+    end if;
+
+    select quantity into v_current
+    from public.inventory_levels
+    where product_id = old.product_id and warehouse_id = old.warehouse_id
+    for update;
+    if v_current is null then v_current := 0; end if;
+
+    if old.movement_type = 'IN' then
+      v_new := v_current - old.quantity;
+    else -- 'OUT'
+      v_new := v_current + old.quantity;
+    end if;
+
+    if v_new < 0 then
+      v_new := 0; -- no permitir negativos; normalizamos a 0
+    end if;
+
+    insert into public.inventory_levels (product_id, warehouse_id, quantity)
+    values (old.product_id, old.warehouse_id, v_new)
+    on conflict (product_id, warehouse_id)
+    do update set quantity = excluded.quantity, updated_at = now();
+
+    return null;
+  end if;
+  return null;
+end;
+$$;
+
+-- Triggers para UPDATE y DELETE
+drop trigger if exists stock_movements_sync_update on public.stock_movements;
+create trigger stock_movements_sync_update
+after update of product_id, warehouse_id, movement_type, quantity on public.stock_movements
+for each row execute function public.sync_stock_movement_update_delete();
+
+drop trigger if exists stock_movements_sync_delete on public.stock_movements;
+create trigger stock_movements_sync_delete
+after delete on public.stock_movements
+for each row execute function public.sync_stock_movement_update_delete();

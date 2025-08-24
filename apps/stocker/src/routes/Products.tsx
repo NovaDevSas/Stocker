@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { supabase } from '../lib/supabase'
@@ -21,9 +22,160 @@ interface ProductForm {
   category_id?: string
 }
 
+interface ProductImage {
+  id: string
+  product_id: string
+  image_url: string
+  alt_text: string | null
+  is_primary: boolean
+  sort_order: number
+  created_at: string
+}
+
+function ProductImagesManager({ productId, isAdmin }: { productId: string; isAdmin: boolean }) {
+  const qc = useQueryClient()
+  const imagesQ = useQuery({
+    queryKey: ['product_images', productId],
+    queryFn: async (): Promise<ProductImage[]> => {
+      const { data, error } = await supabase
+        .from('product_images')
+        .select('id, product_id, image_url, alt_text, is_primary, sort_order, created_at')
+        .eq('product_id', productId)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data as any
+    },
+    enabled: !!productId,
+  })
+
+  const [signedMap, setSignedMap] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const run = async () => {
+      const list = imagesQ.data ?? []
+      if (!list.length) { setSignedMap({}); return }
+      const paths = list.map(i => i.image_url)
+      const { data, error } = await supabase.storage.from('product-images').createSignedUrls(paths, 3600)
+      if (!error && data) {
+        const map: Record<string, string> = {}
+        data.forEach((d, idx) => {
+          map[paths[idx]] = d.signedUrl
+        })
+        setSignedMap(map)
+      }
+    }
+    run()
+  }, [imagesQ.data])
+
+  const uploadMut = useMutation({
+    mutationFn: async (file: File) => {
+      const orig = file.name || 'file'
+      const ext = (orig.includes('.') ? orig.split('.').pop() : '')?.toLowerCase() || 'bin'
+      const path = `${productId}/${Date.now()}.${ext}`
+      const contentType = file.type && file.type.length > 0 ? file.type : 'application/octet-stream'
+      const { error: upErr } = await supabase.storage
+        .from('product-images')
+        .upload(path, file, { contentType, cacheControl: '3600', upsert: false })
+      if (upErr) throw upErr
+      const { error: insErr } = await supabase.from('product_images').insert({
+        product_id: productId,
+        image_url: path,
+        alt_text: orig,
+        is_primary: false,
+        sort_order: (imagesQ.data?.length || 0)
+      })
+      if (insErr) throw insErr
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['product_images', productId] })
+    }
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: async (img: ProductImage) => {
+      const { error: delObjErr } = await supabase.storage.from('product-images').remove([img.image_url])
+      if (delObjErr) throw delObjErr
+      const { error: delRowErr } = await supabase.from('product_images').delete().eq('id', img.id)
+      if (delRowErr) throw delRowErr
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['product_images', productId] })
+    }
+  })
+
+  const setPrimaryMut = useMutation({
+    mutationFn: async (img: ProductImage) => {
+      // Desmarcar todas y marcar una
+      const { error: clearErr } = await supabase
+        .from('product_images')
+        .update({ is_primary: false })
+        .eq('product_id', productId)
+      if (clearErr) throw clearErr
+      const { error: setErr } = await supabase
+        .from('product_images')
+        .update({ is_primary: true })
+        .eq('id', img.id)
+      if (setErr) throw setErr
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ['product_images', productId] })
+    }
+  })
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) uploadMut.mutate(file)
+    e.currentTarget.value = ''
+  }
+
+  return (
+    <div className="mt-3">
+      {isAdmin && (
+        <div className="mb-3">
+          <label className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-500 cursor-pointer">
+            {uploadMut.isPending ? 'Subiendo...' : 'Subir imagen'}
+            <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
+          </label>
+          {uploadMut.isError && <span className="ml-2 text-sm text-red-600">{(uploadMut.error as any)?.message || 'Error al subir'}</span>}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+        {(imagesQ.data ?? []).map(img => (
+          <div key={img.id} className="rounded border p-2">
+            <div className="aspect-square overflow-hidden rounded bg-gray-100">
+              {signedMap[img.image_url] ? (
+                <img src={signedMap[img.image_url]} alt={img.alt_text ?? ''} className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">Sin vista previa</div>
+              )}
+            </div>
+            <div className="mt-2 text-xs">
+              {img.is_primary ? (
+                <span className="inline-flex items-center rounded bg-emerald-50 px-2 py-0.5 text-emerald-700 border border-emerald-200">Principal</span>
+              ) : isAdmin ? (
+                <button onClick={() => setPrimaryMut.mutate(img)} className="text-indigo-600 hover:underline">Hacer principal</button>
+              ) : null}
+            </div>
+            {isAdmin && (
+              <div className="mt-1">
+                <button onClick={() => deleteMut.mutate(img)} className="text-red-600 hover:underline text-xs">Eliminar</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {(imagesQ.isLoading) && <p className="mt-2 text-sm text-gray-500">Cargando imágenes...</p>}
+      {(imagesQ.isError) && <p className="mt-2 text-sm text-red-600">Error al cargar imágenes.</p>}
+    </div>
+  )
+}
+
 export default function Products() {
   const { isAdmin } = useAuth()
   const qc = useQueryClient()
+  const [selectedProductId, setSelectedProductId] = useState<string>('')
 
   const categoriesQuery = useQuery({
     queryKey: ['categories', 'for-select'],
@@ -156,6 +308,26 @@ export default function Products() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        <div className="rounded-xl border bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">Imágenes de producto</h2>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className="text-sm font-medium">Selecciona un producto</label>
+              <select className="mt-1 w-full rounded-md border px-3 py-2" value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)}>
+                <option value="">Elige...</option>
+                {(productsQuery.data ?? []).map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {selectedProductId && (
+            <ProductImagesManager productId={selectedProductId} isAdmin={!!isAdmin} />
+          )}
         </div>
       </main>
     </div>

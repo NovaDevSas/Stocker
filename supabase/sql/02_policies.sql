@@ -110,7 +110,7 @@ for all using (
 );
 
 -- Inventory levels
-create policy "inventory_levels_read_auth" on public.inventory_levels
+create policy if not exists "inventory_levels_read_auth" on public.inventory_levels
 for select using (auth.role() = 'authenticated');
 
 create policy "inventory_levels_write_admin" on public.inventory_levels

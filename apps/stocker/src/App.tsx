@@ -7,6 +7,10 @@ import { useAuth } from './context/AuthContext'
 import Dashboard from './routes/Dashboard'
 import Categories from './routes/Categories'
 import Products from './routes/Products'
+import Suppliers from './routes/Suppliers'
+import Warehouses from './routes/Warehouses'
+import StockMovements from './routes/StockMovements'
+import InventoryLevels from './routes/InventoryLevels'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { loading, user } = useAuth()
@@ -159,6 +163,38 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Products />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/suppliers"
+        element={
+          <ProtectedRoute>
+            <Suppliers />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/warehouses"
+        element={
+          <ProtectedRoute>
+            <Warehouses />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/movements"
+        element={
+          <ProtectedRoute>
+            <StockMovements />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/inventory"
+        element={
+          <ProtectedRoute>
+            <InventoryLevels />
           </ProtectedRoute>
         }
       />
