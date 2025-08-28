@@ -35,19 +35,19 @@ function Home() {
   const [mobileOpen, setMobileOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-[var(--brand-50)] via-white to-[var(--brand-100)] text-gray-900">
       {/* Header */}
       <header className="border-b bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60 sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-semibold text-lg">
-            <span className="inline-grid place-content-center w-8 h-8 rounded-full bg-indigo-600 text-white font-bold">S</span>
+            <span className="inline-grid place-content-center w-8 h-8 rounded-full bg-[var(--brand-600)] text-white font-bold">S</span>
             <span>Stocker</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#features" className="hover:text-indigo-600">Características</a>
-            <a href="#precios" className="hover:text-indigo-600">Precios</a>
-            <a href="#soporte" className="hover:text-indigo-600">Soporte</a>
-            <Link to="/signin" className="inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-white hover:bg-indigo-500">Entrar</Link>
+            <a href="#features" className="hover:text-[var(--brand-700)]">Características</a>
+            <a href="#precios" className="hover:text-[var(--brand-700)]">Precios</a>
+            <a href="#soporte" className="hover:text-[var(--brand-700)]">Soporte</a>
+            <Link to="/signin" className="inline-flex items-center rounded-md bg-[var(--brand-600)] px-3 py-1.5 text-white hover:bg-[var(--brand-700)]">Entrar</Link>
           </nav>
           <button aria-label="Abrir menú" className="md:hidden inline-flex items-center justify-center rounded-md p-2 hover:bg-gray-100" onClick={() => setMobileOpen(v => !v)}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
@@ -58,10 +58,10 @@ function Home() {
         {mobileOpen && (
           <div className="md:hidden border-t bg-white">
             <nav className="container mx-auto px-4 py-3 grid gap-3 text-sm">
-              <a href="#features" className="hover:text-indigo-600">Características</a>
-              <a href="#precios" className="hover:text-indigo-600">Precios</a>
-              <a href="#soporte" className="hover:text-indigo-600">Soporte</a>
-              <Link to="/signin" className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-3 py-2 text-white hover:bg-indigo-500">Entrar</Link>
+              <a href="#features" className="hover:text-[var(--brand-700)]">Características</a>
+              <a href="#precios" className="hover:text-[var(--brand-700)]">Precios</a>
+              <a href="#soporte" className="hover:text-[var(--brand-700)]">Soporte</a>
+              <Link to="/signin" className="inline-flex items-center justify-center rounded-md bg-[var(--brand-600)] px-3 py-2 text-white hover:bg-[var(--brand-700)]">Entrar</Link>
             </nav>
           </div>
         )}
@@ -79,7 +79,7 @@ function Home() {
             </p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <Link to="/signin" className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-5 py-2.5 text-white hover:bg-indigo-500">Comenzar</Link>
-              <a href="#features" className="inline-flex items-center justify-center rounded-md border border-gray-300 px-5 py-2.5 hover:bg-gray-50">Ver características</a>
+              <a href="#features" className="inline-flex items-center justify-center rounded-md border border-gray-300 px-5 py-2.5 hover:bg-[var(--brand-50)] hover:border-[var(--brand-300)]">Ver características</a>
             </div>
           </div>
           <div>
@@ -102,7 +102,7 @@ function Home() {
                   <div className="mt-1 text-2xl font-semibold">312</div>
                 </div>
               </div>
-              <div className="mt-4 h-28 rounded-md bg-gradient-to-r from-indigo-100 to-indigo-50" />
+              <div className="mt-4 h-28 rounded-md bg-gradient-to-r from-[var(--brand-100)] to-[var(--brand-50)]" />
             </div>
           </div>
         </section>
@@ -201,4 +201,3 @@ export default function App() {
     </Routes>
   )
 }
-

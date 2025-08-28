@@ -4,3 +4,17 @@
 html, body, #root {
   height: 100%;
 }
+
+/* Paleta de marca (salmon) */
+:root {
+  --brand-50:  #FFF3F1;
+  --brand-100: #FFE5E1;
+  --brand-200: #FFCEC8;
+  --brand-300: #FFB1A8;
+  --brand-400: #FF8C80;
+  --brand-500: #FA8072; /* salmon */
+  --brand-600: #E36D61;
+  --brand-700: #C75B52;
+  --brand-800: #A64C45;
+  --brand-900: #7C3833;
+}

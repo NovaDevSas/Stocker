@@ -393,9 +393,13 @@ begin
 
     return null;
   elsif tg_op = 'DELETE' then
-    -- Por simplicidad del MVP: no permitimos borrar movimientos de tipo ADJUST
+    -- Permitir borrar movimientos ADJUST solo si es eliminación en cascada por producto
+    -- (cuando se elimina un producto, se deben poder eliminar sus movimientos ADJUST)
     if old.movement_type = 'ADJUST' then
-      raise exception 'Borrar movimientos ADJUST no está permitido.';
+      -- Verificar si el producto aún existe
+      if exists(select 1 from public.products where id = old.product_id) then
+        raise exception 'Borrar movimientos ADJUST no está permitido.';
+      end if;
     end if;
 
     if old.warehouse_id is null then

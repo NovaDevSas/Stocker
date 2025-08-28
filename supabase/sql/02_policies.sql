@@ -35,9 +35,9 @@ for all using (
 
 create policy "products_write_admin" on public.products
 for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
 ) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
 );
 
 -- Proveedores y relaciones: lectura autenticados, escritura solo admins
@@ -56,9 +56,9 @@ for select using (auth.role() = 'authenticated');
 
 create policy "product_suppliers_write_admin" on public.product_suppliers
 for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
 ) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
 );
 
 -- Movimientos: lectura autenticados, escritura solo admins
@@ -67,9 +67,9 @@ for select using (auth.role() = 'authenticated');
 
 create policy "stock_movements_write_admin" on public.stock_movements
 for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
 ) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
 );
 
 -- PATCHES 2025-08-24-b — RLS para empresas e imágenes de productos
@@ -93,9 +93,9 @@ for select using (auth.role() = 'authenticated');
 
 create policy "product_images_write_admin" on public.product_images
 for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
 ) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
 );
 
 -- Warehouses: lectura autenticados, escritura solo admins
@@ -115,9 +115,9 @@ for select using (auth.role() = 'authenticated');
 
 create policy "inventory_levels_write_admin" on public.inventory_levels
 for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
 ) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
 );
 
 -- Customers
