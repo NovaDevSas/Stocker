@@ -11,6 +11,12 @@ import Suppliers from './routes/Suppliers'
 import Warehouses from './routes/Warehouses'
 import StockMovements from './routes/StockMovements'
 import InventoryLevels from './routes/InventoryLevels'
+import Customers from './routes/Customers'
+import SalesOrders from './routes/SalesOrders'
+import PurchaseOrders from './routes/PurchaseOrders'
+import Companies from './routes/Companies'
+import ProductImages from './routes/ProductImages'
+import DashboardLayout from './components/DashboardLayout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { loading, user } = useAuth()
@@ -142,62 +148,28 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/signin" element={<SignIn />} />
+      {/* Dashboard nested with layout */}
       <Route
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <DashboardLayout />
           </ProtectedRoute>
         }
-      />
-      <Route
-        path="/dashboard/categories"
-        element={
-          <ProtectedRoute>
-            <Categories />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/products"
-        element={
-          <ProtectedRoute>
-            <Products />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/suppliers"
-        element={
-          <ProtectedRoute>
-            <Suppliers />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/warehouses"
-        element={
-          <ProtectedRoute>
-            <Warehouses />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/movements"
-        element={
-          <ProtectedRoute>
-            <StockMovements />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard/inventory"
-        element={
-          <ProtectedRoute>
-            <InventoryLevels />
-          </ProtectedRoute>
-        }
-      />
+      >
+        <Route index element={<Dashboard />} />
+        <Route path="categories" element={<Categories />} />
+        <Route path="products" element={<Products />} />
+        <Route path="product-images" element={<ProductImages />} />
+        <Route path="suppliers" element={<Suppliers />} />
+        <Route path="warehouses" element={<Warehouses />} />
+        <Route path="customers" element={<Customers />} />
+        <Route path="sales-orders" element={<SalesOrders />} />
+        <Route path="purchase-orders" element={<PurchaseOrders />} />
+        <Route path="movements" element={<StockMovements />} />
+        <Route path="inventory" element={<InventoryLevels />} />
+        <Route path="companies" element={<Companies />} />
+      </Route>
     </Routes>
   )
 }

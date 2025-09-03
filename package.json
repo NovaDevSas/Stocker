@@ -9,5 +9,8 @@
     "dev": "npm run dev -w apps/stocker",
     "build": "npm run build -w apps/stocker",
     "preview": "npm run preview -w apps/stocker"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0"
   }
 }
