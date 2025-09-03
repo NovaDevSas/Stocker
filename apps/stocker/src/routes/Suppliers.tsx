@@ -71,19 +71,21 @@ export default function Suppliers() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-[var(--brand-50)] via-white to-[var(--brand-100)]">
       <header className="border-b bg-white">
         <div className="container mx-auto px-4 py-6 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold">Proveedores</h1>
-            <p className="mt-1 text-sm text-gray-600">Gestiona la información de tus proveedores</p>
+            <h1 className="text-xl font-semibold text-gray-900 mb-2">Proveedores</h1>
+            <p className="text-sm text-gray-600">Gestiona la información de tus proveedores</p>
           </div>
           <div className="flex items-center gap-3">
             {suppliersQuery.data && (
               <span className="hidden sm:inline text-sm text-gray-600">{suppliersQuery.data.length} en total</span>
             )}
             {isAdmin && (
-              <a href="#create" className="inline-flex items-center rounded-md bg-[var(--brand-600)] px-3 py-1.5 text-white hover:bg-[var(--brand-700)]">Nuevo</a>
+              <a href="#create" className="inline-flex items-center rounded-md bg-[var(--brand-600)] px-3 py-1.5 text-white hover:bg-[var(--brand-700)] transition-colors">
+                Nuevo
+              </a>
             )}
           </div>
         </div>
@@ -92,34 +94,61 @@ export default function Suppliers() {
       <main className="container mx-auto px-4 py-8 grid gap-6 lg:grid-cols-3">
         {isAdmin ? (
           <div id="create" className="rounded-2xl border bg-white p-6 shadow-sm lg:sticky lg:top-6 h-max">
-            <h2 className="text-lg font-semibold">Crear proveedor</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Completa los datos para incorporarlo al directorio.
-            </p>
-            <form className="mt-4 grid gap-4" onSubmit={handleSubmit(onSubmit)}>
-              <div className="grid gap-1.5">
-                <label className="text-sm font-medium" htmlFor="name">Nombre</label>
-                <input id="name" className="w-full rounded-md border px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-300)] focus-visible:border-[var(--brand-500)]" {...register('name', { required: 'El nombre es obligatorio' })} />
-                {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Crear proveedor</h2>
+              <p className="text-sm text-gray-600">
+                Completa los datos para incorporarlo al directorio.
+              </p>
+            </div>
+            <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="name">Nombre</label>
+                <input 
+                  id="name" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--brand-500)] focus:border-[var(--brand-500)] transition-colors" 
+                  {...register('name', { required: 'El nombre es obligatorio' })} 
+                />
+                {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name.message}</p>}
               </div>
-              <div className="grid gap-1.5">
-                <label className="text-sm font-medium" htmlFor="email">Email</label>
-                <input id="email" type="email" className="w-full rounded-md border px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-300)] focus-visible:border-[var(--brand-500)]" {...register('email')} />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="email">Email</label>
+                <input 
+                  id="email" 
+                  type="email" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--brand-500)] focus:border-[var(--brand-500)] transition-colors" 
+                  {...register('email')} 
+                />
               </div>
-              <div className="grid gap-1.5">
-                <label className="text-sm font-medium" htmlFor="phone">Teléfono</label>
-                <input id="phone" className="w-full rounded-md border px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-300)] focus-visible:border-[var(--brand-500)]" {...register('phone')} />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="phone">Teléfono</label>
+                <input 
+                  id="phone" 
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--brand-500)] focus:border-[var(--brand-500)] transition-colors" 
+                  {...register('phone')} 
+                />
               </div>
-              <div className="grid gap-1.5">
-                <label className="text-sm font-medium" htmlFor="notes">Notas</label>
-                <textarea id="notes" rows={3} className="w-full rounded-md border px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-300)] focus-visible:border-[var(--brand-500)]" {...register('notes')} />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="notes">Notas</label>
+                <textarea 
+                  id="notes" 
+                  rows={3} 
+                  placeholder="Notas adicionales sobre el proveedor..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--brand-500)] focus:border-[var(--brand-500)] transition-colors resize-none" 
+                  {...register('notes')} 
+                />
               </div>
-              <div className="flex items-center gap-3">
-                <button type="submit" disabled={isSubmitting || createMutation.isPending} className="inline-flex items-center rounded-md bg-[var(--brand-600)] px-4 py-2 text-white hover:bg-[var(--brand-700)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-300)] disabled:opacity-60">
+              <div className="flex flex-col gap-3">
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting || createMutation.isPending} 
+                  className="w-full inline-flex items-center justify-center rounded-lg bg-[var(--brand-600)] px-4 py-2.5 text-white font-medium hover:bg-[var(--brand-700)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-500)] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
                   {createMutation.isPending ? 'Creando...' : 'Crear'}
                 </button>
                 {createMutation.isError && (
-                  <span className="text-sm text-red-600">Error: {(createMutation.error as any)?.message}</span>
+                  <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
+                    Error: {(createMutation.error as any)?.message}
+                  </div>
                 )}
               </div>
             </form>
@@ -130,66 +159,79 @@ export default function Suppliers() {
           </div>
         )}
 
-        <div className="rounded-2xl border bg-white p-6 shadow-sm lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">Listado</h2>
-            {suppliersQuery.isLoading && <span className="text-sm text-gray-500">Cargando...</span>}
-          </div>
-          {suppliersQuery.isError && (
-            <div className="mt-2 rounded-md bg-red-50 border border-red-200 p-2 text-sm text-red-700">
-              Error: {(suppliersQuery.error as any)?.message}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden lg:col-span-2">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Listado de Proveedores</h2>
+                <p className="text-sm text-gray-600 mt-1">Gestiona todos los proveedores registrados en el sistema</p>
+              </div>
+              {suppliersQuery.isLoading && <span className="text-sm text-gray-500">Cargando...</span>}
             </div>
-          )}
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-600">
-                  <th className="py-2 pr-4">Nombre</th>
-                  <th className="py-2 pr-4">Contacto</th>
-                  <th className="py-2 pr-4">Notas</th>
-                  {isAdmin && <th className="py-2 pr-2 text-right">Acciones</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {suppliersQuery.data?.map(s => (
-                  <tr key={s.id} className="hover:bg-[var(--brand-50)]/40">
-                    <td className="py-3 pr-4 font-medium">{s.name}</td>
-                    <td className="py-3 pr-4">
-                      <div className="space-y-1">
-                        {s.email && <div className="text-sm text-gray-600">{s.email}</div>}
-                        {s.phone && <div className="text-sm text-gray-600">{s.phone}</div>}
-                        {!s.email && !s.phone && <span className="text-sm text-gray-400">-</span>}
-                      </div>
-                    </td>
-                    <td className="py-3 pr-4">
-                      {s.notes ? (
-                        <div className="text-sm text-gray-600 max-w-xs truncate" title={s.notes}>{s.notes}</div>
-                      ) : (
-                        <span className="text-sm text-gray-400">-</span>
-                      )}
-                    </td>
-                    {isAdmin && (
-                      <td className="py-3 pr-2">
-                        <div className="flex items-center justify-end">
-                          <button 
-                            onClick={() => deleteMutation.mutate(s.id)} 
-                            className="inline-flex items-center rounded-md border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-300" 
-                            disabled={deleteMutation.isPending}
-                          >
-                            {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
-                          </button>
-                        </div>
-                      </td>
+          </div>
+          <div className="p-6">
+            {suppliersQuery.isError && (
+              <div className="mb-4 rounded-md bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+                Error: {(suppliersQuery.error as any)?.message}
+              </div>
+            )}
+            {suppliersQuery.isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-gray-500">Cargando proveedores...</div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Nombre</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Contacto</th>
+                      <th className="text-left py-3 px-4 font-medium text-gray-900">Notas</th>
+                      {isAdmin && <th className="text-right py-3 px-4 font-medium text-gray-900">Acciones</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {suppliersQuery.data?.map(s => (
+                      <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-4 px-4 font-medium text-gray-900">{s.name}</td>
+                        <td className="py-4 px-4 text-gray-600">
+                          <div className="space-y-1">
+                            {s.email && <div className="text-sm">{s.email}</div>}
+                            {s.phone && <div className="text-sm text-gray-500">{s.phone}</div>}
+                            {!s.email && !s.phone && <span className="text-sm text-gray-400">-</span>}
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-gray-600 text-sm">
+                          {s.notes ? (
+                            <div className="max-w-xs truncate" title={s.notes}>{s.notes}</div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        {isAdmin && (
+                          <td className="py-4 px-4">
+                            <div className="flex items-center justify-end">
+                              <button 
+                                onClick={() => deleteMutation.mutate(s.id)} 
+                                className="text-red-600 hover:text-red-800 disabled:opacity-50 text-sm font-medium transition-colors" 
+                                disabled={deleteMutation.isPending}
+                              >
+                                {deleteMutation.isPending ? 'Eliminando...' : 'Eliminar'}
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                    {suppliersQuery.data && suppliersQuery.data.length === 0 && (
+                      <tr>
+                        <td colSpan={isAdmin ? 4 : 3} className="py-8 text-center text-gray-500">No hay proveedores aún.</td>
+                      </tr>
                     )}
-                  </tr>
-                ))}
-                {suppliersQuery.data && suppliersQuery.data.length === 0 && (
-                  <tr>
-                    <td colSpan={isAdmin ? 4 : 3} className="py-6 text-gray-500">No hay proveedores aún.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </main>
