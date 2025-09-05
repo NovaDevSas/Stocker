@@ -1,11 +1,9 @@
 -- 03_seed.sql — Datos de ejemplo para pruebas
 -- Ejecuta este script después de 01 y 02 en el SQL Editor de Supabase
 
--- Crea un perfil admin para tu usuario autenticado actual
--- Reemplaza <YOUR_AUTH_USER_ID> por el UUID de auth.users de tu cuenta
--- Puedes obtenerlo con: select auth.uid(); (desde el SQL Editor autenticado)
+-- Admin por UID (ajusta si tu UID cambia)
 insert into public.profiles (id, display_name, is_admin)
-values ('6fa7c5cb-1a40-415b-a21d-fb13891bdce5', 'Administrador', true)
+values ('c37b9084-2035-491a-aebd-15d0c189d778', 'Administrador', true)
 on conflict (id) do update set is_admin = true;
 
 -- Categorías de prueba

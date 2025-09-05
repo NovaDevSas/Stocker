@@ -8,7 +8,10 @@
   "scripts": {
     "dev": "npm run dev -w apps/stocker",
     "build": "npm run build -w apps/stocker",
-    "preview": "npm run preview -w apps/stocker"
+    "preview": "npm run preview -w apps/stocker",
+    "start": "npm run preview -w apps/stocker",
+    "lint": "npm run lint -w apps/stocker",
+    "typecheck": "npm run typecheck -w apps/stocker"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0"

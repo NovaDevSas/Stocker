@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { supabase } from '../lib/supabase'
@@ -35,6 +35,7 @@ export default function ProductImages() {
   const [selectedImage, setSelectedImage] = useState<ProductImage | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({})
 
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<ProductImageForm>({
     defaultValues: {
@@ -64,6 +65,52 @@ export default function ProductImages() {
     }
   })
 
+  // Generate signed URLs for images
+  useEffect(() => {
+    const generateSignedUrls = async () => {
+      if (!productImages.length) {
+        setSignedUrls({})
+        return
+      }
+
+      console.log('ProductImages:', productImages)
+
+      const paths = productImages.map(img => {
+        // If the image_url is already a path, use it directly
+        // If it's a full URL, extract the path
+        if (img.image_url.startsWith('http')) {
+          const url = new URL(img.image_url)
+          return url.pathname.split('/').slice(-2).join('/') // Get the last two parts: folder/filename
+        } else {
+          return img.image_url // It's already a path
+        }
+      })
+
+      console.log('Paths for signed URLs:', paths)
+
+      const { data, error } = await supabase.storage
+        .from('product-images')
+        .createSignedUrls(paths, 3600)
+
+      console.log('Signed URLs response:', { data, error })
+
+      if (!error && data) {
+        const urlMap: Record<string, string> = {}
+        data.forEach((item, index) => {
+          if (item.signedUrl) {
+            urlMap[productImages[index].image_url] = item.signedUrl
+          }
+        })
+        console.log('URL Map:', urlMap)
+        setSignedUrls(urlMap)
+      } else {
+        console.error('Error generating signed URLs:', error)
+      }
+    }
+
+    generateSignedUrls()
+  }, [productImages])
+
   // Fetch products for dropdown
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
@@ -92,11 +139,6 @@ export default function ProductImages() {
 
       if (uploadError) throw uploadError
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(filePath)
-
       // If this is set as primary, unset other primary images for this product
       if (formData.is_primary) {
         await supabase
@@ -105,12 +147,12 @@ export default function ProductImages() {
           .eq('product_id', formData.product_id)
       }
 
-      // Insert image record
+      // Insert image record with just the file path
       const { data, error } = await supabase
         .from('product_images')
         .insert([{
           ...formData,
-          image_url: publicUrl
+          image_url: filePath
         }])
         .select()
         .single()
@@ -129,13 +171,10 @@ export default function ProductImages() {
   // Delete image mutation
   const deleteImage = useMutation({
     mutationFn: async (image: ProductImage) => {
-      // Delete from storage
-      const filePath = image.image_url.split('/').pop()
-      if (filePath) {
-        await supabase.storage
-          .from('product-images')
-          .remove([`product-images/${filePath}`])
-      }
+      // Delete from storage using the stored path
+      await supabase.storage
+        .from('product-images')
+        .remove([image.image_url])
 
       // Delete from database
       const { error } = await supabase
@@ -410,9 +449,13 @@ export default function ProductImages() {
                       <div key={image.id} className="relative group bg-gray-50 rounded-lg overflow-hidden">
                         <div className="aspect-square">
                           <img 
-                            src={image.image_url} 
+                            src={signedUrls[image.image_url] || image.image_url} 
                             alt={image.alt_text || 'Imagen del producto'}
                             className="w-full h-full object-cover"
+                            onError={(e) => {
+                              console.error('Error loading image:', image.image_url, signedUrls[image.image_url]);
+                              e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCA2MEgxMjBWMTAwSDgwVjYwWiIgZmlsbD0iI0Q1RDlERCIvPgo8cGF0aCBkPSJNOTAgODBMMTAwIDkwTDExMCA4MEwxMjAgMTAwSDgwTDkwIDgwWiIgZmlsbD0iI0E3QjJCOCIvPgo8L3N2Zz4K';
+                            }}
                           />
                         </div>
                         
@@ -483,7 +526,7 @@ export default function ProductImages() {
 
       {/* Image Detail Modal */}
       {selectedImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -505,9 +548,13 @@ export default function ProductImages() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
                   <img 
-                    src={selectedImage.image_url} 
+                    src={signedUrls[selectedImage.image_url] || selectedImage.image_url} 
                     alt={selectedImage.alt_text || 'Imagen del producto'}
                     className="w-full rounded-lg"
+                    onError={(e) => {
+                      console.error('Error loading preview image:', selectedImage.image_url, signedUrls[selectedImage.image_url]);
+                      e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04MCA2MEgxMjBWMTAwSDgwVjYwWiIgZmlsbD0iI0Q1RDlERCIvPgo8cGF0aCBkPSJNOTAgODBMMTAwIDkwTDExMCA4MEwxMjAgMTAwSDgwTDkwIDgwWiIgZmlsbD0iI0E3QjJCOCIvPgo8L3N2Zz4K';
+                    }}
                   />
                 </div>
                 

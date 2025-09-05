@@ -1,5 +1,7 @@
 -- 02_policies.sql — Políticas RLS iniciales de Stocker
 -- Ejecuta este script DESPUÉS de 01_schema.sql en el SQL Editor de Supabase
+-- IMPORTANTE: Ejecutar TODO este archivo seleccionando "Run as: service_role" en el SQL Editor de Supabase
+-- Si no tienes acceso a service_role, contacta al administrador del proyecto
 
 -- Habilitar RLS en todas las tablas
 alter table public.profiles enable row level security;
@@ -8,6 +10,14 @@ alter table public.products enable row level security;
 alter table public.suppliers enable row level security;
 alter table public.product_suppliers enable row level security;
 alter table public.stock_movements enable row level security;
+-- Habilitar RLS en tablas adicionales del esquema
+alter table public.warehouses enable row level security;
+alter table public.inventory_levels enable row level security;
+alter table public.customers enable row level security;
+alter table public.sales_orders enable row level security;
+alter table public.sales_order_items enable row level security;
+alter table public.purchase_orders enable row level security;
+alter table public.purchase_order_items enable row level security;
 
 -- Perfiles: cada usuario gestiona solo su perfil
 create policy "profiles_select_own" on public.profiles
@@ -110,7 +120,7 @@ for all using (
 );
 
 -- Inventory levels
-create policy if not exists "inventory_levels_read_auth" on public.inventory_levels
+create policy "inventory_levels_read_auth" on public.inventory_levels
 for select using (auth.role() = 'authenticated');
 
 create policy "inventory_levels_write_admin" on public.inventory_levels
@@ -176,6 +186,10 @@ for all using (
 );
 
 -- PATCHES 2025-08-24-c — Políticas de Storage
+-- IMPORTANTE: Para esta sección específica, si obtienes error "must be owner of table objects":
+-- 1. Ejecuta SOLO esta sección como service_role en el SQL Editor
+-- 2. O descomenta la línea "set role supabase_storage_admin;" de abajo
+set role supabase_storage_admin;
 alter table storage.objects enable row level security;
 
 -- Product images bucket: lectura autenticados, escritura solo admins
@@ -237,65 +251,48 @@ for all using (
   )
 );
 
+reset role;
+
 -- PATCHES 2025-08-24-d — Limpieza de políticas (public.*) para re-ejecución idempotente
--- Ejecuta este bloque primero si obtienes errores de "policy ... already exists"
--- NOTA: Comentado por defecto para no borrar políticas al re-ejecutar todo el archivo
--- Copia y ejecuta estas líneas manualmente solo cuando las necesites
+-- Si recibes "policy ... already exists", descomenta solo lo necesario y ejecuta como service_role
+-- PUBLIC
+-- drop policy if exists "profiles_select_own" on public.profiles;
+-- drop policy if exists "profiles_insert_own" on public.profiles;
+-- drop policy if exists "profiles_update_own" on public.profiles;
+-- drop policy if exists "categories_read_all" on public.categories;
+-- drop policy if exists "categories_write_admin" on public.categories;
+-- drop policy if exists "products_read_all" on public.products;
+-- drop policy if exists "products_write_admin" on public.products;
+-- drop policy if exists "suppliers_read_auth" on public.suppliers;
+-- drop policy if exists "suppliers_write_admin" on public.suppliers;
+-- drop policy if exists "product_suppliers_read_auth" on public.product_suppliers;
+-- drop policy if exists "product_suppliers_write_admin" on public.product_suppliers;
+-- drop policy if exists "stock_movements_read_auth" on public.stock_movements;
+-- drop policy if exists "stock_movements_write_admin" on public.stock_movements;
+-- drop policy if exists "companies_read_auth" on public.companies;
+-- drop policy if exists "companies_write_admin" on public.companies;
+-- drop policy if exists "product_images_read_auth" on public.product_images;
+-- drop policy if exists "product_images_write_admin" on public.product_images;
+-- drop policy if exists "warehouses_read_auth" on public.warehouses;
+-- drop policy if exists "warehouses_write_admin" on public.warehouses;
+-- drop policy if exists "inventory_levels_read_auth" on public.inventory_levels;
+-- drop policy if exists "inventory_levels_write_admin" on public.inventory_levels;
+-- drop policy if exists "customers_read_auth" on public.customers;
+-- drop policy if exists "customers_write_admin" on public.customers;
+-- drop policy if exists "sales_orders_read_auth" on public.sales_orders;
+-- drop policy if exists "sales_orders_write_admin" on public.sales_orders;
+-- drop policy if exists "sales_order_items_read_auth" on public.sales_order_items;
+-- drop policy if exists "sales_order_items_write_admin" on public.sales_order_items;
+-- drop policy if exists "purchase_orders_read_auth" on public.purchase_orders;
+-- drop policy if exists "purchase_orders_write_admin" on public.purchase_orders;
+-- drop policy if exists "purchase_order_items_read_auth" on public.purchase_order_items;
+-- drop policy if exists "purchase_order_items_write_admin" on public.purchase_order_items;
 
--- Perfiles
--- DROP POLICY IF EXISTS "profiles_select_own" ON public.profiles;
--- DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
--- DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
-
--- Categorías y Productos
--- DROP POLICY IF EXISTS "categories_read_all" ON public.categories;
--- DROP POLICY IF EXISTS "products_read_all" ON public.products;
--- DROP POLICY IF EXISTS "categories_write_admin" ON public.categories;
--- DROP POLICY IF EXISTS "products_write_admin" ON public.products;
-
--- Proveedores y relaciones
--- DROP POLICY IF EXISTS "suppliers_read_auth" ON public.suppliers;
--- DROP POLICY IF EXISTS "suppliers_write_admin" ON public.suppliers;
--- DROP POLICY IF EXISTS "product_suppliers_read_auth" ON public.product_suppliers;
--- DROP POLICY IF EXISTS "product_suppliers_write_admin" ON public.product_suppliers;
-
--- Movimientos de stock
--- DROP POLICY IF EXISTS "stock_movements_read_auth" ON public.stock_movements;
--- DROP POLICY IF EXISTS "stock_movements_write_admin" ON public.stock_movements;
-
--- Empresas e imágenes de productos
--- DROP POLICY IF EXISTS "companies_read_auth" ON public.companies;
--- DROP POLICY IF EXISTS "companies_write_admin" ON public.companies;
--- DROP POLICY IF EXISTS "product_images_read_auth" ON public.product_images;
--- DROP POLICY IF EXISTS "product_images_write_admin" ON public.product_images;
-
--- Almacenes e inventario
--- DROP POLICY IF EXISTS "warehouses_read_auth" ON public.warehouses;
--- DROP POLICY IF EXISTS "warehouses_write_admin" ON public.warehouses;
--- DROP POLICY IF EXISTS "inventory_levels_read_auth" ON public.inventory_levels;
--- DROP POLICY IF EXISTS "inventory_levels_write_admin" ON public.inventory_levels;
-
--- Clientes y ventas
--- DROP POLICY IF EXISTS "customers_read_auth" ON public.customers;
--- DROP POLICY IF EXISTS "customers_write_admin" ON public.customers;
--- DROP POLICY IF EXISTS "sales_orders_read_auth" ON public.sales_orders;
--- DROP POLICY IF EXISTS "sales_orders_write_admin" ON public.sales_orders;
--- DROP POLICY IF EXISTS "sales_order_items_read_auth" ON public.sales_order_items;
--- DROP POLICY IF EXISTS "sales_order_items_write_admin" ON public.sales_order_items;
-
--- Compras
--- DROP POLICY IF EXISTS "purchase_orders_read_auth" ON public.purchase_orders;
--- DROP POLICY IF EXISTS "purchase_orders_write_admin" ON public.purchase_orders;
--- DROP POLICY IF EXISTS "purchase_order_items_read_auth" ON public.purchase_order_items;
--- DROP POLICY IF EXISTS "purchase_order_items_write_admin" ON public.purchase_order_items;
-
--- PATCHES 2025-08-24-e — Limpieza de políticas de Storage (ejecutar como service_role)
--- Sugerido: en el SQL Editor, selecciona "Run as: service_role". Alternativa: descomenta set role
--- set role supabase_storage_admin;
--- DROP POLICY IF EXISTS "storage_product_images_read_auth" ON storage.objects;
--- DROP POLICY IF EXISTS "storage_product_images_write_admin" ON storage.objects;
--- DROP POLICY IF EXISTS "storage_company_assets_read_auth" ON storage.objects;
--- DROP POLICY IF EXISTS "storage_company_assets_write_admin" ON storage.objects;
--- DROP POLICY IF EXISTS "storage_user_signatures_read_own_or_admin" ON storage.objects;
--- DROP POLICY IF EXISTS "storage_user_signatures_write_own_or_admin" ON storage.objects;
+-- STORAGE
+-- drop policy if exists "storage_product_images_read_auth" on storage.objects;
+-- drop policy if exists "storage_product_images_write_admin" on storage.objects;
+-- drop policy if exists "storage_company_assets_read_auth" on storage.objects;
+-- drop policy if exists "storage_company_assets_write_admin" on storage.objects;
+-- drop policy if exists "storage_user_signatures_read_own_or_admin" on storage.objects;
+-- drop policy if exists "storage_user_signatures_write_own_or_admin" on storage.objects;
 -- reset role;
