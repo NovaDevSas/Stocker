@@ -157,6 +157,13 @@ export default function DashboardLayout() {
         { to: '/dashboard/companies', label: 'Empresas', icon: IconBuilding },
       ],
     },
+    {
+      title: 'Administración',
+      items: [
+        { to: '/dashboard/roles', label: 'Roles', icon: IconUsers },
+        { to: '/dashboard/users', label: 'Usuarios', icon: IconUsers },
+      ],
+    },
   ]
 
   const Sidebar = (

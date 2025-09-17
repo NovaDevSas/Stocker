@@ -1,298 +1,518 @@
--- 02_policies.sql — Políticas RLS iniciales de Stocker
--- Ejecuta este script DESPUÉS de 01_schema.sql en el SQL Editor de Supabase
--- IMPORTANTE: Ejecutar TODO este archivo seleccionando "Run as: service_role" en el SQL Editor de Supabase
--- Si no tienes acceso a service_role, contacta al administrador del proyecto
+-- =====================================================
+-- 02_policies.sql - Row Level Security Policies
+-- =====================================================
+-- Run as: service_role
+-- Descripción: Políticas RLS optimizadas con multitenancy por empresa
+-- y mejores prácticas de seguridad para Supabase
 
--- Habilitar RLS en todas las tablas
-alter table public.profiles enable row level security;
-alter table public.categories enable row level security;
-alter table public.products enable row level security;
-alter table public.suppliers enable row level security;
-alter table public.product_suppliers enable row level security;
-alter table public.stock_movements enable row level security;
--- Habilitar RLS en tablas adicionales del esquema
-alter table public.warehouses enable row level security;
-alter table public.inventory_levels enable row level security;
-alter table public.customers enable row level security;
-alter table public.sales_orders enable row level security;
-alter table public.sales_order_items enable row level security;
-alter table public.purchase_orders enable row level security;
-alter table public.purchase_order_items enable row level security;
+-- =====================================================
+-- HABILITACIÓN DE RLS EN TODAS LAS TABLAS
+-- =====================================================
 
--- Perfiles: cada usuario gestiona solo su perfil
+-- Tablas principales
+alter table if exists public.profiles enable row level security;
+alter table if exists public.companies enable row level security;
+alter table if exists public.app_roles enable row level security;
+alter table if exists public.app_user_roles enable row level security;
+alter table if exists public.company_user_roles enable row level security;
+
+-- Catálogos y productos
+alter table if exists public.categories enable row level security;
+alter table if exists public.products enable row level security;
+alter table if exists public.product_media enable row level security;
+alter table if exists public.suppliers enable row level security;
+alter table if exists public.product_suppliers enable row level security;
+
+-- Inventario y movimientos
+alter table if exists public.warehouses enable row level security;
+alter table if exists public.inventory_levels enable row level security;
+alter table if exists public.stock_movements enable row level security;
+-- alter table if exists public.stock_adjustments enable row level security; -- Tabla no definida en esquema
+
+-- Ventas y compras
+alter table if exists public.customers enable row level security;
+alter table if exists public.sales_orders enable row level security;
+alter table if exists public.sales_order_items enable row level security;
+alter table if exists public.purchase_orders enable row level security;
+alter table if exists public.purchase_order_items enable row level security;
+
+-- Deliveries y auditoría
+alter table if exists public.deliveries enable row level security;
+-- alter table if exists public.delivery_items enable row level security; -- Tabla no definida en esquema
+alter table if exists public.audit_logs enable row level security;
+
+-- Storage (se configura en 06_storage.sql)
+-- alter table if exists storage.objects enable row level security;
+
+-- =====================================================
+-- FUNCIONES HELPER PARA POLÍTICAS
+-- =====================================================
+
+-- Función para verificar si el usuario es admin global
+create or replace function public.is_admin(user_id uuid default auth.uid())
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists(
+    select 1 from public.profiles p
+    where p.id = user_id and p.is_admin = true
+  );
+$$;
+
+-- Función para verificar si el usuario pertenece a una empresa
+create or replace function public.user_belongs_to_company(company_id uuid, user_id uuid default auth.uid())
+returns boolean
+language sql
+security definer
+stable
+as $$
+  select exists(
+    select 1 from public.company_user_roles cur
+    where cur.user_id = user_id and cur.company_id = company_id
+  );
+$$;
+
+-- Función para obtener las empresas del usuario
+create or replace function public.get_user_companies(user_id uuid default auth.uid())
+returns setof uuid
+language sql
+security definer
+stable
+as $$
+  select cur.company_id
+  from public.company_user_roles cur
+  where cur.user_id = user_id;
+$$;
+
+-- =====================================================
+-- POLÍTICAS PARA PROFILES
+-- =====================================================
+
+-- Los usuarios pueden ver su propio perfil
 create policy "profiles_select_own" on public.profiles
-for select using (auth.uid() = id);
+for select using (id = auth.uid());
 
-create policy "profiles_insert_own" on public.profiles
-for insert with check (auth.uid() = id);
+-- Los admins pueden ver todos los perfiles
+create policy "profiles_select_admin" on public.profiles
+for select using (public.is_admin());
 
+-- Los usuarios pueden actualizar su propio perfil
 create policy "profiles_update_own" on public.profiles
-for update using (auth.uid() = id) with check (auth.uid() = id);
+for update using (id = auth.uid())
+with check (id = auth.uid());
 
--- Categorías/Productos: lectura abierta, escritura solo administradores
-create policy "categories_read_all" on public.categories
-for select using (true);
+-- Los admins pueden actualizar cualquier perfil
+create policy "profiles_update_admin" on public.profiles
+for update using (public.is_admin())
+with check (public.is_admin());
 
-create policy "products_read_all" on public.products
-for select using (true);
+-- =====================================================
+-- POLÍTICAS PARA COMPANIES
+-- =====================================================
 
-create policy "categories_write_admin" on public.categories
-for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
-create policy "products_write_admin" on public.products
-for all using (
-  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- Proveedores y relaciones: lectura autenticados, escritura solo admins
-create policy "suppliers_read_auth" on public.suppliers
-for select using (auth.role() = 'authenticated');
-
-create policy "suppliers_write_admin" on public.suppliers
-for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
-create policy "product_suppliers_read_auth" on public.product_suppliers
-for select using (auth.role() = 'authenticated');
-
-create policy "product_suppliers_write_admin" on public.product_suppliers
-for all using (
-  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- Movimientos: lectura autenticados, escritura solo admins
-create policy "stock_movements_read_auth" on public.stock_movements
-for select using (auth.role() = 'authenticated');
-
-create policy "stock_movements_write_admin" on public.stock_movements
-for all using (
-  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- PATCHES 2025-08-24-b — RLS para empresas e imágenes de productos
-alter table public.companies enable row level security;
-alter table public.product_images enable row level security;
-
--- Companies
-create policy "companies_read_auth" on public.companies
-for select using (auth.role() = 'authenticated');
-
-create policy "companies_write_admin" on public.companies
-for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- Product images
-create policy "product_images_read_auth" on public.product_images
-for select using (auth.role() = 'authenticated');
-
-create policy "product_images_write_admin" on public.product_images
-for all using (
-  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- Warehouses: lectura autenticados, escritura solo admins
-create policy "warehouses_read_auth" on public.warehouses
-for select using (auth.role() = 'authenticated');
-
-create policy "warehouses_write_admin" on public.warehouses
-for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- Inventory levels
-create policy "inventory_levels_read_auth" on public.inventory_levels
-for select using (auth.role() = 'authenticated');
-
-create policy "inventory_levels_write_admin" on public.inventory_levels
-for all using (
-  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  auth.uid() is not null and exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- Customers
-create policy "customers_read_auth" on public.customers
-for select using (auth.role() = 'authenticated');
-
-create policy "customers_write_admin" on public.customers
-for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- Sales orders
-create policy "sales_orders_read_auth" on public.sales_orders
-for select using (auth.role() = 'authenticated');
-
-create policy "sales_orders_write_admin" on public.sales_orders
-for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- Sales order items
-create policy "sales_order_items_read_auth" on public.sales_order_items
-for select using (auth.role() = 'authenticated');
-
-create policy "sales_order_items_write_admin" on public.sales_order_items
-for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- Purchase orders
-create policy "purchase_orders_read_auth" on public.purchase_orders
-for select using (auth.role() = 'authenticated');
-
-create policy "purchase_orders_write_admin" on public.purchase_orders
-for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- Purchase order items
-create policy "purchase_order_items_read_auth" on public.purchase_order_items
-for select using (auth.role() = 'authenticated');
-
-create policy "purchase_order_items_write_admin" on public.purchase_order_items
-for all using (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-) with check (
-  exists(select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
-);
-
--- PATCHES 2025-08-24-c — Políticas de Storage
--- IMPORTANTE: Para esta sección específica, si obtienes error "must be owner of table objects":
--- 1. Ejecuta SOLO esta sección como service_role en el SQL Editor
--- 2. O descomenta la línea "set role supabase_storage_admin;" de abajo
-set role supabase_storage_admin;
-alter table storage.objects enable row level security;
-
--- Product images bucket: lectura autenticados, escritura solo admins
-create policy "storage_product_images_read_auth" on storage.objects
+-- Los usuarios pueden ver las empresas a las que pertenecen
+create policy "companies_select_member" on public.companies
 for select using (
-  bucket_id = 'product-images' and auth.role() = 'authenticated'
+  id in (select public.get_user_companies())
 );
 
-create policy "storage_product_images_write_admin" on storage.objects
-for all using (
-  bucket_id = 'product-images' and exists(
-    select 1 from public.profiles p where p.id = auth.uid() and p.is_admin
-  )
-) with check (
-  bucket_id = 'product-images' and exists(
-    select 1 from public.profiles p where p.id = auth.uid() and p.is_admin
-  )
-);
+-- Los admins pueden ver todas las empresas
+create policy "companies_select_admin" on public.companies
+for select using (public.is_admin());
 
--- Company assets bucket: lectura autenticados, escritura solo admins
-create policy "storage_company_assets_read_auth" on storage.objects
+-- Solo los admins pueden crear empresas
+create policy "companies_insert_admin" on public.companies
+for insert with check (public.is_admin());
+
+-- Solo los admins pueden actualizar empresas
+create policy "companies_update_admin" on public.companies
+for update using (public.is_admin())
+with check (public.is_admin());
+
+-- =====================================================
+-- POLÍTICAS PARA ROLES Y ASIGNACIONES
+-- =====================================================
+
+-- app_roles: lectura para autenticados, escritura solo admins
+create policy "app_roles_select_auth" on public.app_roles
+for select using (auth.uid() is not null);
+
+create policy "app_roles_modify_admin" on public.app_roles
+for all using (public.is_admin())
+with check (public.is_admin());
+
+-- app_user_roles: cada usuario ve sus roles, admins ven todo
+create policy "app_user_roles_select_own" on public.app_user_roles
+for select using (user_id = auth.uid());
+
+create policy "app_user_roles_select_admin" on public.app_user_roles
+for select using (public.is_admin());
+
+create policy "app_user_roles_modify_admin" on public.app_user_roles
+for all using (public.is_admin())
+with check (public.is_admin());
+
+-- company_user_roles: multitenancy por empresa
+create policy "company_user_roles_select_own" on public.company_user_roles
+for select using (user_id = auth.uid());
+
+create policy "company_user_roles_select_company" on public.company_user_roles
 for select using (
-  bucket_id = 'company-assets' and auth.role() = 'authenticated'
+  company_id in (select public.get_user_companies())
 );
 
-create policy "storage_company_assets_write_admin" on storage.objects
-for all using (
-  bucket_id = 'company-assets' and exists(
-    select 1 from public.profiles p where p.id = auth.uid() and p.is_admin
-  )
-) with check (
-  bucket_id = 'company-assets' and exists(
-    select 1 from public.profiles p where p.id = auth.uid() and p.is_admin
-  )
-);
+create policy "company_user_roles_select_admin" on public.company_user_roles
+for select using (public.is_admin());
 
--- User signatures bucket: lectura usuario dueño o admin; escritura dueño o admin
-create policy "storage_user_signatures_read_own_or_admin" on storage.objects
+create policy "company_user_roles_modify_admin" on public.company_user_roles
+for all using (public.is_admin())
+with check (public.is_admin());
+
+-- =====================================================
+-- POLÍTICAS PARA CATÁLOGOS (MULTITENANCY)
+-- =====================================================
+
+-- Categories: por empresa
+create policy "categories_select_company" on public.categories
 for select using (
-  bucket_id = 'user-signatures' and (
-    owner = auth.uid() or exists(
-      select 1 from public.profiles p where p.id = auth.uid() and p.is_admin
-    )
+  company_id in (select public.get_user_companies()) or public.is_admin()
+);
+
+create policy "categories_modify_company" on public.categories
+for all using (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+) with check (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+);
+
+-- Products: por empresa
+create policy "products_select_company" on public.products
+for select using (
+  company_id in (select public.get_user_companies()) or public.is_admin()
+);
+
+create policy "products_modify_company" on public.products
+for all using (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+) with check (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+);
+
+-- Product Media: por empresa a través del producto
+create policy "product_media_select_company" on public.product_media
+for select using (
+  exists(
+    select 1 from public.products p
+    where p.id = product_id
+    and (p.company_id in (select public.get_user_companies()) or public.is_admin())
   )
 );
 
-create policy "storage_user_signatures_write_own_or_admin" on storage.objects
+create policy "product_media_modify_company" on public.product_media
 for all using (
-  bucket_id = 'user-signatures' and (
-    owner = auth.uid() or exists(
-      select 1 from public.profiles p where p.id = auth.uid() and p.is_admin
-    )
+  exists(
+    select 1 from public.products p
+    where p.id = product_id
+    and (public.user_belongs_to_company(p.company_id) or public.is_admin())
   )
 ) with check (
-  bucket_id = 'user-signatures' and (
-    owner = auth.uid() or exists(
-      select 1 from public.profiles p where p.id = auth.uid() and p.is_admin
-    )
+  exists(
+    select 1 from public.products p
+    where p.id = product_id
+    and (public.user_belongs_to_company(p.company_id) or public.is_admin())
   )
 );
 
-reset role;
+-- Suppliers: por empresa
+create policy "suppliers_select_company" on public.suppliers
+for select using (
+  company_id in (select public.get_user_companies()) or public.is_admin()
+);
 
--- PATCHES 2025-08-24-d — Limpieza de políticas (public.*) para re-ejecución idempotente
--- Si recibes "policy ... already exists", descomenta solo lo necesario y ejecuta como service_role
--- PUBLIC
--- drop policy if exists "profiles_select_own" on public.profiles;
--- drop policy if exists "profiles_insert_own" on public.profiles;
--- drop policy if exists "profiles_update_own" on public.profiles;
--- drop policy if exists "categories_read_all" on public.categories;
--- drop policy if exists "categories_write_admin" on public.categories;
--- drop policy if exists "products_read_all" on public.products;
--- drop policy if exists "products_write_admin" on public.products;
--- drop policy if exists "suppliers_read_auth" on public.suppliers;
--- drop policy if exists "suppliers_write_admin" on public.suppliers;
--- drop policy if exists "product_suppliers_read_auth" on public.product_suppliers;
--- drop policy if exists "product_suppliers_write_admin" on public.product_suppliers;
--- drop policy if exists "stock_movements_read_auth" on public.stock_movements;
--- drop policy if exists "stock_movements_write_admin" on public.stock_movements;
--- drop policy if exists "companies_read_auth" on public.companies;
--- drop policy if exists "companies_write_admin" on public.companies;
--- drop policy if exists "product_images_read_auth" on public.product_images;
--- drop policy if exists "product_images_write_admin" on public.product_images;
--- drop policy if exists "warehouses_read_auth" on public.warehouses;
--- drop policy if exists "warehouses_write_admin" on public.warehouses;
--- drop policy if exists "inventory_levels_read_auth" on public.inventory_levels;
--- drop policy if exists "inventory_levels_write_admin" on public.inventory_levels;
--- drop policy if exists "customers_read_auth" on public.customers;
--- drop policy if exists "customers_write_admin" on public.customers;
--- drop policy if exists "sales_orders_read_auth" on public.sales_orders;
--- drop policy if exists "sales_orders_write_admin" on public.sales_orders;
--- drop policy if exists "sales_order_items_read_auth" on public.sales_order_items;
--- drop policy if exists "sales_order_items_write_admin" on public.sales_order_items;
--- drop policy if exists "purchase_orders_read_auth" on public.purchase_orders;
--- drop policy if exists "purchase_orders_write_admin" on public.purchase_orders;
--- drop policy if exists "purchase_order_items_read_auth" on public.purchase_order_items;
--- drop policy if exists "purchase_order_items_write_admin" on public.purchase_order_items;
+create policy "suppliers_modify_company" on public.suppliers
+for all using (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+) with check (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+);
 
--- STORAGE
--- drop policy if exists "storage_product_images_read_auth" on storage.objects;
--- drop policy if exists "storage_product_images_write_admin" on storage.objects;
--- drop policy if exists "storage_company_assets_read_auth" on storage.objects;
--- drop policy if exists "storage_company_assets_write_admin" on storage.objects;
--- drop policy if exists "storage_user_signatures_read_own_or_admin" on storage.objects;
--- drop policy if exists "storage_user_signatures_write_own_or_admin" on storage.objects;
--- reset role;
+-- Product Suppliers: por empresa a través del producto
+create policy "product_suppliers_select_company" on public.product_suppliers
+for select using (
+  exists(
+    select 1 from public.products p
+    where p.id = product_id
+    and (p.company_id in (select public.get_user_companies()) or public.is_admin())
+  )
+);
+
+create policy "product_suppliers_modify_company" on public.product_suppliers
+for all using (
+  exists(
+    select 1 from public.products p
+    where p.id = product_id
+    and (public.user_belongs_to_company(p.company_id) or public.is_admin())
+  )
+) with check (
+  exists(
+    select 1 from public.products p
+    where p.id = product_id
+    and (public.user_belongs_to_company(p.company_id) or public.is_admin())
+  )
+);
+
+-- =====================================================
+-- POLÍTICAS PARA INVENTARIO (MULTITENANCY)
+-- =====================================================
+
+-- Warehouses: por empresa
+create policy "warehouses_select_company" on public.warehouses
+for select using (
+  company_id in (select public.get_user_companies()) or public.is_admin()
+);
+
+create policy "warehouses_modify_company" on public.warehouses
+for all using (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+) with check (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+);
+
+-- Inventory Levels: por empresa a través del warehouse
+create policy "inventory_levels_select_company" on public.inventory_levels
+for select using (
+  exists(
+    select 1 from public.warehouses w
+    where w.id = warehouse_id
+    and (w.company_id in (select public.get_user_companies()) or public.is_admin())
+  )
+);
+
+create policy "inventory_levels_modify_company" on public.inventory_levels
+for all using (
+  exists(
+    select 1 from public.warehouses w
+    where w.id = warehouse_id
+    and (public.user_belongs_to_company(w.company_id) or public.is_admin())
+  )
+) with check (
+  exists(
+    select 1 from public.warehouses w
+    where w.id = warehouse_id
+    and (public.user_belongs_to_company(w.company_id) or public.is_admin())
+  )
+);
+
+-- Stock Movements: por empresa a través del warehouse
+create policy "stock_movements_select_company" on public.stock_movements
+for select using (
+  exists(
+    select 1 from public.warehouses w
+    where w.id = warehouse_id
+    and (w.company_id in (select public.get_user_companies()) or public.is_admin())
+  )
+);
+
+create policy "stock_movements_modify_company" on public.stock_movements
+for all using (
+  exists(
+    select 1 from public.warehouses w
+    where w.id = warehouse_id
+    and (public.user_belongs_to_company(w.company_id) or public.is_admin())
+  )
+) with check (
+  exists(
+    select 1 from public.warehouses w
+    where w.id = warehouse_id
+    and (public.user_belongs_to_company(w.company_id) or public.is_admin())
+  )
+);
+
+-- Stock Adjustments: TABLA NO DEFINIDA EN ESQUEMA - POLÍTICAS COMENTADAS
+-- create policy "stock_adjustments_select_company" on public.stock_adjustments
+-- for select using (
+--   exists(
+--     select 1 from public.warehouses w
+--     where w.id = warehouse_id
+--     and (w.company_id in (select public.get_user_companies()) or public.is_admin())
+--   )
+-- );
+
+-- create policy "stock_adjustments_modify_company" on public.stock_adjustments
+-- for all using (
+--   exists(
+--     select 1 from public.warehouses w
+--     where w.id = warehouse_id
+--     and (public.user_belongs_to_company(w.company_id) or public.is_admin())
+--   )
+-- ) with check (
+--   exists(
+--     select 1 from public.warehouses w
+--     where w.id = warehouse_id
+--     and (public.user_belongs_to_company(w.company_id) or public.is_admin())
+--   )
+-- );
+
+-- =====================================================
+-- POLÍTICAS PARA VENTAS Y COMPRAS (MULTITENANCY)
+-- =====================================================
+
+-- Customers: por empresa
+create policy "customers_select_company" on public.customers
+for select using (
+  company_id in (select public.get_user_companies()) or public.is_admin()
+);
+
+create policy "customers_modify_company" on public.customers
+for all using (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+) with check (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+);
+
+-- Sales Orders: por empresa
+create policy "sales_orders_select_company" on public.sales_orders
+for select using (
+  company_id in (select public.get_user_companies()) or public.is_admin()
+);
+
+create policy "sales_orders_modify_company" on public.sales_orders
+for all using (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+) with check (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+);
+
+-- Sales Order Items: por empresa a través de la orden
+create policy "sales_order_items_select_company" on public.sales_order_items
+for select using (
+  exists(
+    select 1 from public.sales_orders so
+    where so.id = sales_order_id
+    and (so.company_id in (select public.get_user_companies()) or public.is_admin())
+  )
+);
+
+create policy "sales_order_items_modify_company" on public.sales_order_items
+for all using (
+  exists(
+    select 1 from public.sales_orders so
+    where so.id = sales_order_id
+    and (public.user_belongs_to_company(so.company_id) or public.is_admin())
+  )
+) with check (
+  exists(
+    select 1 from public.sales_orders so
+    where so.id = sales_order_id
+    and (public.user_belongs_to_company(so.company_id) or public.is_admin())
+  )
+);
+
+-- Purchase Orders: por empresa
+create policy "purchase_orders_select_company" on public.purchase_orders
+for select using (
+  company_id in (select public.get_user_companies()) or public.is_admin()
+);
+
+create policy "purchase_orders_modify_company" on public.purchase_orders
+for all using (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+) with check (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+);
+
+-- Purchase Order Items: por empresa a través de la orden
+create policy "purchase_order_items_select_company" on public.purchase_order_items
+for select using (
+  exists(
+    select 1 from public.purchase_orders po
+    where po.id = purchase_order_id
+    and (po.company_id in (select public.get_user_companies()) or public.is_admin())
+  )
+);
+
+create policy "purchase_order_items_modify_company" on public.purchase_order_items
+for all using (
+  exists(
+    select 1 from public.purchase_orders po
+    where po.id = purchase_order_id
+    and (public.user_belongs_to_company(po.company_id) or public.is_admin())
+  )
+) with check (
+  exists(
+    select 1 from public.purchase_orders po
+    where po.id = purchase_order_id
+    and (public.user_belongs_to_company(po.company_id) or public.is_admin())
+  )
+);
+
+-- =====================================================
+-- POLÍTICAS PARA DELIVERIES (MULTITENANCY)
+-- =====================================================
+
+-- Deliveries: por empresa
+create policy "deliveries_select_company" on public.deliveries
+for select using (
+  company_id in (select public.get_user_companies()) or public.is_admin()
+);
+
+create policy "deliveries_modify_company" on public.deliveries
+for all using (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+) with check (
+  public.user_belongs_to_company(company_id) or public.is_admin()
+);
+
+-- Delivery Items: TABLA NO DEFINIDA EN ESQUEMA - POLÍTICAS COMENTADAS
+-- create policy "delivery_items_select_company" on public.delivery_items
+-- for select using (
+--   exists(
+--     select 1 from public.deliveries d
+--     where d.id = delivery_id
+--     and (d.company_id in (select public.get_user_companies()) or public.is_admin())
+--   )
+-- );
+
+-- create policy "delivery_items_modify_company" on public.delivery_items
+-- for all using (
+--   exists(
+--     select 1 from public.deliveries d
+--     where d.id = delivery_id
+--     and (public.user_belongs_to_company(d.company_id) or public.is_admin())
+--   )
+-- ) with check (
+--   exists(
+--     select 1 from public.deliveries d
+--     where d.id = delivery_id
+--     and (public.user_belongs_to_company(d.company_id) or public.is_admin())
+--   )
+-- );
+
+-- =====================================================
+-- POLÍTICAS PARA AUDITORÍA
+-- =====================================================
+
+-- Audit Log: solo lectura para admins
+create policy "audit_log_select_admin" on public.audit_logs
+for select using (public.is_admin());
+
+-- =====================================================
+-- POLÍTICAS DE STORAGE
+-- =====================================================
+
+-- NOTA: Las políticas de storage se movieron a 06_storage.sql
+-- Ejecutar 06_storage.sql después de este script para configurar storage
+
+-- =====================================================
+-- COMENTARIOS FINALES
+-- =====================================================
+
+-- NOTAS IMPORTANTES:
+-- 1. Todas las políticas implementan multitenancy por empresa
+-- 2. Los admins globales pueden acceder a todo
+-- 3. Los usuarios solo ven datos de sus empresas asignadas
+-- 4. Las funciones helper optimizan las consultas repetitivas
+-- 5. Storage está organizado por carpetas de empresa/producto
+-- 6. Para desarrollo, usar 04_disable_rls.sql temporalmente

@@ -17,6 +17,8 @@ import PurchaseOrders from './routes/PurchaseOrders'
 import Companies from './routes/Companies'
 import ProductImages from './routes/ProductImages'
 import DashboardLayout from './components/DashboardLayout'
+import Roles from './routes/Roles'
+import Users from './routes/Users'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { loading, user } = useAuth()
@@ -169,6 +171,8 @@ export default function App() {
         <Route path="movements" element={<StockMovements />} />
         <Route path="inventory" element={<InventoryLevels />} />
         <Route path="companies" element={<Companies />} />
+        <Route path="roles" element={<Roles />} />
+        <Route path="users" element={<Users />} />
       </Route>
     </Routes>
   )
