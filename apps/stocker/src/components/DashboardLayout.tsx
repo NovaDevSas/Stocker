@@ -81,6 +81,12 @@ const IconCart = (props: any) => (
     <path d="M1 1h4l2.68 12.39a2 2 0 002 1.61H19a2 2 0 002-1.61L23 6H6" />
   </svg>
 )
+const IconUser = (props: any) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="size-5" {...props}>
+    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+)
 
 export default function DashboardLayout() {
   const { user, signOut } = useAuth()
@@ -124,6 +130,7 @@ export default function DashboardLayout() {
       title: 'General',
       items: [
         { to: '/dashboard', label: 'Inicio', icon: IconHome, end: true },
+        { to: '/dashboard/profile', label: 'Mi Perfil', icon: IconUser },
       ],
     },
     {

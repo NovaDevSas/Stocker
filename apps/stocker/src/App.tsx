@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Routes, Route, Link, Navigate } from 'react-router-dom'
 import { SignIn } from './routes/SignIn'
+import SignUp from './routes/SignUp'
+import Profile from './routes/Profile'
 import { useAuth } from './context/AuthContext'
 import Dashboard from './routes/Dashboard'
 import Categories from './routes/Categories'
@@ -55,7 +57,10 @@ function Home() {
             <a href="#features" className="hover:text-[var(--brand-700)]">Características</a>
             <a href="#precios" className="hover:text-[var(--brand-700)]">Precios</a>
             <a href="#soporte" className="hover:text-[var(--brand-700)]">Soporte</a>
-            <Link to="/signin" className="inline-flex items-center rounded-md bg-[var(--brand-600)] px-3 py-1.5 text-white hover:bg-[var(--brand-700)]">Entrar</Link>
+            <div className="flex items-center gap-2">
+              <Link to="/signup" className="inline-flex items-center rounded-md border border-[var(--brand-600)] px-3 py-1.5 text-[var(--brand-600)] hover:bg-[var(--brand-50)]">Registrarse</Link>
+              <Link to="/signin" className="inline-flex items-center rounded-md bg-[var(--brand-600)] px-3 py-1.5 text-white hover:bg-[var(--brand-700)]">Entrar</Link>
+            </div>
           </nav>
           <button aria-label="Abrir menú" className="md:hidden inline-flex items-center justify-center rounded-md p-2 hover:bg-gray-100" onClick={() => setMobileOpen(v => !v)}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="size-6">
@@ -69,6 +74,7 @@ function Home() {
               <a href="#features" className="hover:text-[var(--brand-700)]">Características</a>
               <a href="#precios" className="hover:text-[var(--brand-700)]">Precios</a>
               <a href="#soporte" className="hover:text-[var(--brand-700)]">Soporte</a>
+              <Link to="/signup" className="inline-flex items-center justify-center rounded-md border border-[var(--brand-600)] px-3 py-2 text-[var(--brand-600)] hover:bg-[var(--brand-50)]">Registrarse</Link>
               <Link to="/signin" className="inline-flex items-center justify-center rounded-md bg-[var(--brand-600)] px-3 py-2 text-white hover:bg-[var(--brand-700)]">Entrar</Link>
             </nav>
           </div>
@@ -86,7 +92,7 @@ function Home() {
               Stocker te ayuda a controlar productos, proveedores y stock con un enfoque moderno y responsive.
             </p>
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              <Link to="/signin" className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-5 py-2.5 text-white hover:bg-indigo-500">Comenzar</Link>
+              <Link to="/signup" className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-5 py-2.5 text-white hover:bg-indigo-500">Comenzar</Link>
               <a href="#features" className="inline-flex items-center justify-center rounded-md border border-gray-300 px-5 py-2.5 hover:bg-[var(--brand-50)] hover:border-[var(--brand-300)]">Ver características</a>
             </div>
           </div>
@@ -150,6 +156,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/signin" element={<SignIn />} />
+      <Route path="/signup" element={<SignUp />} />
       {/* Dashboard nested with layout */}
       <Route
         path="/dashboard"
@@ -170,6 +177,7 @@ export default function App() {
         <Route path="purchase-orders" element={<PurchaseOrders />} />
         <Route path="movements" element={<StockMovements />} />
         <Route path="inventory" element={<InventoryLevels />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="companies" element={<Companies />} />
         <Route path="roles" element={<Roles />} />
         <Route path="users" element={<Users />} />

@@ -48,6 +48,19 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
+-- Bucket para avatares de usuarios
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'avatars',
+  'avatars',
+  true, -- público para que las imágenes sean accesibles
+  5242880, -- 5MB limit
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update set
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
 -- =====================================================
 -- POLÍTICAS DE STORAGE
 -- =====================================================
@@ -145,6 +158,28 @@ for all using (
 );
 
 -- =====================================================
+-- POLÍTICAS PARA AVATARS BUCKET
+-- =====================================================
+
+-- Lectura: todos pueden ver avatars (bucket público)
+create policy "avatars_select_public" on storage.objects
+for select using (bucket_id = 'avatars');
+
+-- Escritura: usuarios pueden subir/modificar solo sus propios avatars
+create policy "avatars_modify_own" on storage.objects
+for all using (
+  bucket_id = 'avatars' and (
+    public.is_admin() or
+    (storage.foldername(name))[1]::uuid = auth.uid()
+  )
+) with check (
+  bucket_id = 'avatars' and (
+    public.is_admin() or
+    (storage.foldername(name))[1]::uuid = auth.uid()
+  )
+);
+
+-- =====================================================
 -- FUNCIONES HELPER PARA STORAGE
 -- =====================================================
 
@@ -206,6 +241,19 @@ as $$
         'user-signatures/' || user_id::text || '/' || signature_filename
       else null
     end;
+$$;
+
+-- Función para obtener URL de avatar de usuario
+create or replace function public.get_avatar_url(
+  user_id uuid,
+  avatar_filename text
+)
+returns text
+language sql
+security definer
+set search_path = public
+as $$
+  select 'avatars/' || user_id::text || '/' || avatar_filename;
 $$;
 
 -- =====================================================
@@ -299,7 +347,10 @@ order by c.name;
 --
 -- user-signatures/
 --   ├── {user_id}/
---   │   ├── signature.png
+--   │   └── signature.png
+--
+-- avatars/
+--   ├── {user_id}/
 --   │   └── avatar.jpg
 
 -- NOTAS IMPORTANTES:

@@ -98,7 +98,12 @@ export function SignIn() {
           </form>
 
           <div className="mt-4 flex items-center justify-between text-sm">
-            <span className="text-gray-600">¿No tienes cuenta? Crea una desde Supabase.</span>
+            <span className="text-gray-600">
+              ¿No tienes cuenta?{' '}
+              <Link to="/signup" className="text-[var(--brand-700)] hover:underline">
+                Regístrate aquí
+              </Link>
+            </span>
             <a className="text-[var(--brand-700)] hover:underline" href="#recuperar">Olvidé mi contraseña</a>
           </div>
         </div>
